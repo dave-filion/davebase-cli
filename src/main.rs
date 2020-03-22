@@ -1,8 +1,11 @@
+#[macro_use] extern crate log;
 use std::net::{TcpStream};
-use std::io::{Read, Write};
+use std::io::{stdin, stdout, Read, Write, BufRead};
 use std::str::from_utf8;
 use std::thread::sleep;
 use std::time::Duration;
+
+static HOST_NAME: &str = "127.0.0.1:3333";
 
 fn send_good_get() {
     match TcpStream::connect("127.0.0.1:3333") {
@@ -57,14 +60,38 @@ fn send_bad_msg () {
 }
 
 fn main() {
-    println!("Starting...");
-    send_good_msg();
+    let mut buff = String::new();
 
-    sleep(Duration::from_secs(5));
+    // look until kill command received
+    loop {
+        print!("davebase-cli:> ");
+        stdout().flush();
 
-    send_bad_msg();
+        // wait for user input
+        let read_size = stdin().lock().read_line(&mut buff).unwrap();
 
-    sleep(Duration::from_secs(5));
+        // remove newlines
+        trim_newline(&mut buff);
 
-    send_good_get();
+        println!("User inputted: {}", buff);
+
+        // if command was quit, exit
+        match buff.to_lowercase().as_str() {
+            "quit" | "q" | "exit"  => {
+                break;
+                println!("Exiting...");
+            },
+            _ => buff.clear(),
+        }
+
+    }
+}
+
+fn trim_newline(s: &mut String) {
+    if s.ends_with('\n') {
+        s.pop();
+        if s.ends_with('\r') {
+            s.pop();
+        }
+    }
 }
