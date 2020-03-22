@@ -1,61 +1,31 @@
 #[macro_use] extern crate log;
-use std::net::{TcpStream};
-use std::io::{stdin, stdout, Read, Write, BufRead};
+use std::net::{TcpStream, Shutdown};
+use std::io::{stdin, stdout, Read, Write, BufRead, ErrorKind};
 use std::str::from_utf8;
 use std::thread::sleep;
 use std::time::Duration;
+use std::error::Error;
 
 static HOST_NAME: &str = "127.0.0.1:3333";
 
-fn send_good_get() {
-    match TcpStream::connect("127.0.0.1:3333") {
-        Ok(mut stream) => {
-            println!("connected to port 3333");
-            let msg = b"GET dave::id";
-            // recv buffer limit is 128 bytes
-            stream.write(msg).expect("Couldnt write to stream");
-            println!("Sent message");
+// Sends message to DB, reads back response
+fn send_to_db(msg: &str) -> std::io::Result<String> {
+    if let Ok(mut stream) = TcpStream::connect(HOST_NAME) {
+        // recv buffer limit is 128 bytes
+        stream.write(msg.as_bytes())
+            .expect("Couldnt write to stream");
 
-            // read back result
-            let mut buff = [0 as u8; 128];
-            let size = stream.read(&mut buff).unwrap();
-            println!("Read {} bytes: {}", size, from_utf8(&buff[0..size]).unwrap());
-        },
-        Err(e) => {
-            println!("Failed to connect: {}", e);
-        }
-    }
-}
+        // read back result
+        let mut buff = [0 as u8; 128];
+        let size = stream.read(&mut buff).unwrap();
+        let response = from_utf8(&buff[0..size]).unwrap();
 
-fn send_good_msg () {
-    match TcpStream::connect("127.0.0.1:3333") {
-        Ok(mut stream) => {
-            println!("connected to port 3333");
-            let msg = b"SET dave::id 12341223777";
-            // recv buffer limit is 128 bytes
-            stream.write(msg).expect("Couldnt write to stream");
+        // shutdown read
+        stream.shutdown(Shutdown::Both);
 
-           println!("Sent message")
-        },
-        Err(e) => {
-            println!("Failed to connect: {}", e);
-        }
-    }
-}
-
-fn send_bad_msg () {
-    match TcpStream::connect("127.0.0.1:3333") {
-        Ok(mut stream) => {
-
-            println!("Writing bad message");
-            let bad_msg = b"thiswontworkdave::id 12341223777";
-            stream.write(bad_msg).expect("Couldnt write to stream");
-
-            println!("Sent message")
-        },
-        Err(e) => {
-            println!("Failed to connect: {}", e);
-        }
+        Ok(response.to_string())
+    } else {
+        Err(std::io::Error::new(ErrorKind::Other, "Couldnt connect to host"))
     }
 }
 
@@ -73,7 +43,14 @@ fn main() {
         // remove newlines
         trim_newline(&mut buff);
 
-        println!("User inputted: {}", buff);
+        match send_to_db(buff.as_str()) {
+            Ok(result) => {
+                println!("davebase CLI:> {}", result);
+            },
+            Err(e) => {
+                println!("ERROR: {}", e);
+            }
+        }
 
         // if command was quit, exit
         match buff.to_lowercase().as_str() {
@@ -94,4 +71,27 @@ fn trim_newline(s: &mut String) {
             s.pop();
         }
     }
+}
+
+
+// test require database to be running
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_set_and_get() {
+        let set_msg = "SET test_val_1 thisvalue";
+        let result = send_to_db(set_msg);
+        // expect OK response on successful get
+        assert_eq!(result.unwrap(), "OK");
+
+        // wait a sec
+        sleep(Duration::from_secs(1));
+
+        let get_msg = "GET test_val_1";
+        let result = send_to_db(get_msg);
+        assert_eq!(result.unwrap(), "thisvalue")
+    }
+
 }
