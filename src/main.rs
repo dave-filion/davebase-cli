@@ -42,24 +42,23 @@ fn main() {
 
         // remove newlines
         trim_newline(&mut buff);
+        let msg_str = buff.as_str();
+
+        if let "QUIT" | "EXIT" = msg_str.to_uppercase().as_str() {
+            println!("Exiting...");
+            break;
+        }
 
         match send_to_db(buff.as_str()) {
             Ok(result) => {
-                println!("davebase CLI:> {}", result);
+                println!("davebase-cli:> {}", result);
             },
             Err(e) => {
                 println!("ERROR: {}", e);
             }
         }
 
-        // if command was quit, exit
-        match buff.to_lowercase().as_str() {
-            "quit" | "q" | "exit"  => {
-                break;
-                println!("Exiting...");
-            },
-            _ => buff.clear(),
-        }
+        buff.clear();
 
     }
 }
