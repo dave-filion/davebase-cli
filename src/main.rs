@@ -6,6 +6,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use std::error::Error;
 
+// default host to connect to
 static HOST_NAME: &str = "127.0.0.1:3333";
 
 // Sends message to DB, reads back response
@@ -30,15 +31,16 @@ fn send_to_db(msg: &str) -> std::io::Result<String> {
 }
 
 fn main() {
+    // TODO: add flags to connect to different host, etc
     let mut buff = String::new();
 
     // look until kill command received
     loop {
         print!("davebase-cli:> ");
-        stdout().flush();
+        let _ = stdout().flush();
 
         // wait for user input
-        let read_size = stdin().lock().read_line(&mut buff).unwrap();
+        let _read_size = stdin().lock().read_line(&mut buff).unwrap();
 
         // remove newlines
         trim_newline(&mut buff);
